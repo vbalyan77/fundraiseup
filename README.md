@@ -1,41 +1,41 @@
-## Сервис анонимизации покупателей
+## Customer Anonymization Service
 
-Репозиторий содержит два приложения:
+The repository contains two applications:
 
-- `app.ts` — эмулятор интернет-магазина, который непрерывно создаёт покупателей и записывает их в коллекцию `customers`.
-- `sync.ts` — сервис синхронизации, копирующий документы из `customers` в `customers_anonymised` с детерминированной анонимизацией чувствительных полей. Поддерживает реалтайм-режим и режим полной переиндексации.
+- `app.ts` — an online-store emulator that continuously creates customers and writes them into the `customers` collection.
+- `sync.ts` — a synchronization service that copies documents from `customers` to `customers_anonymised` with deterministic anonymization of sensitive fields. Supports both real-time mode and full reindexing.
 
-### Требования к окружению
+### Environment Requirements
 
 - Node.js 18+
-- MongoDB с включённой репликацией (для change streams достаточно `replicaSet` даже на локальной машине).
+- MongoDB with replication enabled (a `replicaSet` is sufficient even on a local machine for change streams).
 
-### Быстрый старт
+### Getting Started
 
-1. Установите зависимости:
+1. Install dependencies:
 
    ```bash
    npm install
    ```
 
-2. Скопируйте `.env.example` в `.env` и укажите строку подключения MongoDB в переменной `DB_URI`.
+2. Copy `.env.example` to `.env` and set the MongoDB connection string in the `DB_URI` variable.
 
-### Скрипты
+### Scripts
 
-- `npm run app` — запускает генератор покупателей. Каждые 200 мс в коллекцию `customers` пачками по 1‑10 документов добавляются новые записи.
-- `npm run sync` — включает реалтайм-синхронизацию. Сервис слушает вставки и обновления, анонимизирует данные и пачками по 1 000 документов записывает их в `customers_anonymised`. Если за 1 секунду не набралось 1 000 записей, сбрасывается текущий буфер.
-- `npm run sync:full` — выполняет полную переиндексацию всех документов из `customers` в `customers_anonymised` и завершает работу.
-- `npm run format` / `npm run format:fix` — проверка и автоформатирование исходников через Prettier.
+- `npm run app` — starts the customer generator. Every 200 ms new records are inserted into the `customers` collection in batches of 1–10 documents.
+- `npm run sync` — enables real-time synchronization. The service listens for inserts and updates, anonymizes the data, and writes it to `customers_anonymised` in batches of 1,000 documents. If 1,000 records are not accumulated within 1 second, the current buffer is flushed.
+- `npm run sync:full` — performs a full reindex of all documents from `customers` to `customers_anonymised` and then exits.
+- `npm run format` / `npm run format:fix` — checks and auto-formats the sources using Prettier.
 
-### Детали реализации
+### Implementation Details
 
-- Анонимизация использует детерминированный псевдослучайный токен длиной 8 символов `[a-zA-Z0-9]`, основанный на SHA‑256 от исходного значения + имени поля. Это гарантирует одинаковую замену для одинаковых входных данных.
-- Поля `firstName`, `lastName`, часть e‑mail до `@`, `address.line1`, `address.line2`, `address.postcode` заменяются, остальные поля копируются без изменений.
-- Реалтайм-сервис хранит последний `resumeToken` в коллекции `sync_state`. При перезапуске приложение возобновляет поток изменений с сохранённого места и не пропускает события.
-- Синхронизация использует `bulkWrite` с `replaceOne`/`upsert`, поэтому режимы реалтайма и полной переиндексации можно запускать параллельно.
-- При завершении по сигналам `SIGINT`/`SIGTERM` оба приложения корректно закрывают соединения. Синхронизатор дополнительно сбрасывает оставшийся буфер.
+- Anonymization uses a deterministic pseudo-random token of length 8 (`[a-zA-Z0-9]`), based on SHA‑256 of the original value plus the field name. This guarantees identical replacements for identical inputs.
+- The fields `firstName`, `lastName`, the part of e-mail before `@`, `address.line1`, `address.line2`, and `address.postcode` are replaced; other fields are copied as-is.
+- The real-time service stores the last `resumeToken` in the `sync_state` collection. When restarted, the application resumes the change stream from the saved point and does not skip events.
+- Synchronization uses `bulkWrite` with `replaceOne`/`upsert`, so the real-time and full reindexing modes can run in parallel.
+- When finishing due to `SIGINT`/`SIGTERM`, both applications close connections cleanly. The synchronizer additionally flushes the remaining buffer.
 
-### Диагностика
+### Diagnostics
 
-- Проверить форматирование: `npm run format`
-- Обновить форматирование: `npm run format:fix`
+- Check formatting: `npm run format`
+- Update formatting: `npm run format:fix`
